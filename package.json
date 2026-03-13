@@ -1,0 +1,21 @@
+{
+  "name": "lexipay",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "LexiPay - Legal tech payment and analysis platform",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "form-data": "latest",
+    "multer": "latest",
+    "openai": "latest",
+    "pdf-parse": "latest",
+    "viem": "latest"
+  }
+}
