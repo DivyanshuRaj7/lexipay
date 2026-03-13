@@ -141,25 +141,11 @@ app.post('/analyze/:sessionId/:clauseIndex', paymentMiddleware, async (req, res)
   const sessionId = req.params.sessionId;
   const clauseIndex = parseInt(req.params.clauseIndex, 10);
 
-  // Check if session exists
-  const session = getSession(sessionId);
-  if (!session) {
-    return res.status(404).json({ error: 'Session not found in Database' });
-  }
-
-  // Get clause text from cache
-  let clauseText = "";
-  const cached = sessionCache.get(sessionId);
-  if (cached && cached.clauses[clauseIndex]) {
-    clauseText = cached.clauses[clauseIndex];
-  } else {
-    return res.status(400).json({ error: 'Clause not found in memory cache' });
-  }
-
   // Transaction Hash from the payment middleware
   const txHash = req.x402Payment?.transactionHash || req.facinetPayment?.transactionHash || 'tx_mock_hash';
+  console.log(`💰 Payment received for clause ${clauseIndex}, session ${sessionId}, tx: ${txHash}`);
 
-  // Check if we've already paid for and analyzed this exact clause
+  // 1. Check DB first — if already paid+analyzed, return cached result immediately
   const existingResult = getClauseResult(sessionId, clauseIndex);
   if (existingResult && existingResult.paid === 1) {
     return res.json({
@@ -173,16 +159,44 @@ app.post('/analyze/:sessionId/:clauseIndex', paymentMiddleware, async (req, res)
     });
   }
 
+  // 2. Check in-memory cache for clause text
+  const cached = sessionCache.get(sessionId);
+  if (!cached) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  if (clauseIndex < 0 || clauseIndex >= cached.clauses.length) {
+    return res.status(400).json({ error: 'Invalid clause index' });
+  }
+
+  const clauseText = cached.clauses[clauseIndex];
+
   try {
-    // Perform OpenAI analysis
+    // 3. Perform OpenAI analysis
     const analysisResult = await analyzeClause(clauseText, clauseIndex);
-    
+
     // Save and link the blockchain transaction
     if (!existingResult) {
-       saveClauseResult(sessionId, analysisResult);
+      saveClauseResult(sessionId, analysisResult);
     }
-    
     markClausePaid(sessionId, clauseIndex, txHash);
+
+    // 4. Cleanup: if all clauses are now analyzed, free memory and delete file
+    const session = getSession(sessionId);
+    const allResults = getSessionResults(sessionId);
+    const analyzedCount = allResults.filter(r => r.paid === 1).length;
+
+    if (session && analyzedCount >= session.total_clauses) {
+      try {
+        if (cached.filePath && fs.existsSync(cached.filePath)) {
+          fs.unlinkSync(cached.filePath);
+        }
+        sessionCache.delete(sessionId);
+        console.log(`🧹 Session ${sessionId} cleanup complete`);
+      } catch (cleanupErr) {
+        console.warn(`⚠️ Cleanup failed for session ${sessionId}:`, cleanupErr.message);
+      }
+    }
 
     res.json({
       clauseIndex,
@@ -236,6 +250,12 @@ app.get('/results/:sessionId', (req, res) => {
         analyzedAt: r.analyzed_at
     }))
   });
+});
+
+// Global error-handling middleware (must be after all routes)
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
 app.listen(PORT, () => {
