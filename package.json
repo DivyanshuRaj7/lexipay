@@ -19,5 +19,9 @@
     "pdf-parse": "latest",
     "viem": "latest",
     "x402-express": "^1.1.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "hardhat": "^2.28.6"
   }
 }
