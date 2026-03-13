@@ -1,0 +1,25 @@
+SERVICE AGREEMENT
+
+1. The Client agrees to pay the Contractor within 7 days of invoice. 
+   Failure to pay will result in interest charges of 5% per month compounded daily.
+
+2. The Contractor shall retain full intellectual property rights to all work product 
+   created under this agreement, including all source code, designs, and documentation.
+
+3. Either party may terminate this agreement with 24 hours notice for any reason 
+   or no reason whatsoever, with no compensation owed.
+
+4. The Contractor's total liability shall not exceed $1 regardless of the nature 
+   of the claim, including negligence, breach of contract, or any other cause.
+
+5. WHEREAS the Client agrees to indemnify and hold harmless the Contractor from 
+   any and all claims, damages, losses, arising from use of the deliverables.
+
+6. This agreement shall be governed by the laws of a jurisdiction to be determined 
+   at the sole discretion of the Contractor after a dispute arises.
+
+7. All disputes shall be resolved by binding arbitration, with the Contractor 
+   selecting the arbitrator, location, and rules of arbitration.
+
+8. The Client grants the Contractor unlimited rights to use the Client's name, 
+   logo, and project details for marketing purposes without prior approval.

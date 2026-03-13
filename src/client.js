@@ -1,11 +1,12 @@
 import fs from 'fs';
+import path from 'path';
 import dotenv from 'dotenv';
 import * as readline from 'readline/promises';
 import { clearLine, cursorTo } from 'readline';
-import FormData from 'form-data';
 import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
+
 
 // Load environment variables
 dotenv.config();
@@ -65,8 +66,10 @@ async function main() {
 
   console.log(`\n📤 Uploading contract: ${filePath}...`);
   
+  const fileBuffer = fs.readFileSync(filePath);
+  const blob = new Blob([fileBuffer]);
   const formData = new FormData();
-  formData.append('contract', fs.createReadStream(filePath));
+  formData.append('contract', blob, path.basename(filePath));
 
   let uploadRes;
   try {
@@ -74,6 +77,7 @@ async function main() {
       method: 'POST',
       body: formData,
     });
+
   } catch (err) {
     console.error(`❌ Server connection failed: ${err.message}. Is the server running on port 3001?`);
     process.exit(1);
