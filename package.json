@@ -12,10 +12,12 @@
     "better-sqlite3": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "facinet-sdk": "^1.0.0",
     "form-data": "latest",
     "multer": "latest",
     "openai": "latest",
     "pdf-parse": "latest",
-    "viem": "latest"
+    "viem": "latest",
+    "x402-express": "^1.1.0"
   }
 }
