@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import { paymentMiddleware, x402ResourceServer } from '@x402/express';
+import { ExactEvmScheme } from '@x402/evm/exact/server';
+import { HTTPFacilitatorClient } from '@x402/core/server';
 
 import { extractTextFromFile, splitIntoClauses, countClauses } from './extractor.js';
 import { analyzeClause } from './analyzer.js';
@@ -32,40 +35,37 @@ const upload = multer({ dest: 'uploads/' });
 // In-memory cache to hold clauses for active sessions to avoid re-parsing files
 const sessionCache = new Map();
 
-// Generate a mock or real payment middleware dynamically
-let paymentMiddleware = (req, res, next) => next();
-
+// ---- x402 Payment Middleware Setup ----
+let x402Middleware;
 try {
-  let middlewareFactory;
-  try {
-    const facinet = await import('facinet-sdk');
-    middlewareFactory = facinet.x402Express || facinet.default?.x402Express;
-    console.log('✅ Found facinet-sdk.');
-  } catch (err) {
-    console.log('⚠️ facinet-sdk not found, falling back to x402-express...');
-    const x402 = await import('x402-express');
-    middlewareFactory = x402.default || x402.x402Express || x402;
-    console.log('✅ Found x402-express.');
-  }
-  
-  if (middlewareFactory) {
-    paymentMiddleware = middlewareFactory({
-      amount: PRICE_PER_CLAUSE,
-      payTo: PAY_TO_ADDRESS,
-      facilitatorUrl: FACILITATOR_URL
-    });
-    console.log('✅ Payment middleware configured successfully.');
-  } else {
-    console.warn('⚠️ Could not extract payment middleware constructor from the imported module.');
-  }
+  const facilitatorClient = new HTTPFacilitatorClient({ url: FACILITATOR_URL || 'https://x402.org/facilitator' });
+  const resourceServer = new x402ResourceServer(facilitatorClient)
+    .register('eip155:84532', new ExactEvmScheme()); // Base Sepolia
+
+  x402Middleware = paymentMiddleware(
+    {
+      'POST /analyze/:sessionId/:clauseIndex': {
+        accepts: [{
+          scheme: 'exact',
+          price: `$${PRICE_PER_CLAUSE}`,
+          network: 'eip155:84532',
+          payTo: PAY_TO_ADDRESS,
+        }],
+        description: 'Analyze a legal clause for risk',
+        mimeType: 'application/json',
+      },
+    },
+    resourceServer,
+  );
+  console.log('✅ x402 payment middleware configured (Base Sepolia, facilitator:', FACILITATOR_URL || 'https://x402.org/facilitator', ')');
 } catch (error) {
-  console.warn('❌ Failed to load any payment middleware. Proceeding with a dummy passthrough middleware.', error.message);
-  // Setting a fallback dummy middleware to avoid crashing
-  paymentMiddleware = (req, res, next) => {
-    // If we wanted to strictly mock 402 locally, we could do it here
-    next();
-  };
+  console.warn('❌ Failed to set up x402 payment middleware:', error.message);
+  console.warn('⚠️ Falling back to passthrough (payments will NOT be enforced).');
+  x402Middleware = (req, res, next) => next();
 }
+
+// Apply x402 payment middleware globally (it only affects routes defined in the config)
+app.use(x402Middleware);
 
 // ----------------------------------------------------
 // Public Informational Endpoints
@@ -137,12 +137,13 @@ app.post('/upload', upload.single('contract'), async (req, res) => {
  * 2. Analyze Clause (PAID Route)
  * Uses x402 payment middleware to ensure monetization per run.
  */
-app.post('/analyze/:sessionId/:clauseIndex', paymentMiddleware, async (req, res) => {
+app.post('/analyze/:sessionId/:clauseIndex', async (req, res) => {
   const sessionId = req.params.sessionId;
   const clauseIndex = parseInt(req.params.clauseIndex, 10);
 
-  // Transaction Hash from the payment middleware
-  const txHash = req.x402Payment?.transactionHash || req.facinetPayment?.transactionHash || 'tx_mock_hash';
+  // Extract real tx hash from x402 settle response header
+  const settleHeader = res.getHeader('x-402-settle') || '';
+  const txHash = req.headers['x-402-transaction'] || (typeof settleHeader === 'string' && settleHeader) || 'pending';
   console.log(`💰 Payment received for clause ${clauseIndex}, session ${sessionId}, tx: ${txHash}`);
 
   // 1. Check DB first — if already paid+analyzed, return cached result immediately

@@ -3,9 +3,10 @@ import path from 'path';
 import dotenv from 'dotenv';
 import * as readline from 'readline/promises';
 import { clearLine, cursorTo } from 'readline';
-import { createWalletClient, http } from 'viem';
+import { wrapFetchWithPayment } from '@x402/fetch';
+import { x402Client } from '@x402/core/client';
+import { ExactEvmScheme } from '@x402/evm/exact/client';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
 
 
 // Load environment variables
@@ -13,36 +14,13 @@ dotenv.config();
 
 const API_URL = 'http://localhost:3001';
 
-async function setupPaymentFetch() {
-  const account = privateKeyToAccount(process.env.EVM_PRIVATE_KEY);
-  const walletClient = createWalletClient({
-    account,
-    chain: baseSepolia,
-    transport: http()
-  });
-
-  let wrapFetchWithPayment;
-
-  try {
-    const facinet = await import('facinet-sdk');
-    wrapFetchWithPayment = facinet.wrapFetchWithPayment || facinet.default?.wrapFetchWithPayment;
-    console.log('✅ Loaded payment wrapper via facinet-sdk.');
-  } catch (err) {
-    try {
-      const x402 = await import('x402-fetch');
-      wrapFetchWithPayment = x402.wrapFetchWithPayment || x402.default?.wrapFetchWithPayment || x402.default;
-      console.log('✅ Loaded payment wrapper via x402-fetch fallback.');
-    } catch (e) {
-      console.warn('⚠️ No payment SDK found, proceeding with standard fetch (will fail if 402 is strictly enforced).');
-      return fetch;
-    }
-  }
-
-  if (wrapFetchWithPayment) {
-    return wrapFetchWithPayment(fetch, walletClient);
-  } else {
-    return fetch;
-  }
+function setupPaymentFetch() {
+  const signer = privateKeyToAccount(process.env.EVM_PRIVATE_KEY);
+  const client = new x402Client();
+  client.register('eip155:*', new ExactEvmScheme(signer));
+  const fetchWithPay = wrapFetchWithPayment(fetch, client);
+  console.log('✅ x402 payment client configured (signer:', signer.address, ')');
+  return fetchWithPay;
 }
 
 async function main() {
