@@ -160,5 +160,4 @@ lexipay/
 
 ## Team
 
-Steins;Code
-Built at **Vibe-A-Thon** — Heritage Institute of Technology
+Built at **Vibe-A-Thon** — Heritage Institute of Technology, March 14, 2026
