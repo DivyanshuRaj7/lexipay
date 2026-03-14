@@ -68,7 +68,7 @@ The x402 middleware:
 
 ### Install
 ```bash
-git clone <your-repo>
+git clone https://github.com/DivyanshuRaj7/lexipay.git
 cd lexipay
 npm install
 ```
@@ -160,4 +160,5 @@ lexipay/
 
 ## Team
 
-Built at **Vibe-A-Thon** — Heritage Institute of Technology, March 14, 2026
+Steins;Code
+Built at **Vibe-A-Thon** — Heritage Institute of Technology
